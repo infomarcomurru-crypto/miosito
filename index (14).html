@@ -1,1 +1,415 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClearFoodSight – Ricerca gastronomica</title>
+  <style>
+    /* Stile di base */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f7f7f7;
+      color: #333;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin: 10px 0 20px;
+      color: #2c3e50;
+    }
+    .search-box {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 15px;
+    }
+    .search-box input[type="text"], .search-box select {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    .search-box button {
+      padding: 10px 20px;
+      background: #007b5e;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .search-box button:hover {
+      background: #00694d;
+    }
+    .results {
+      margin-top: 20px;
+    }
+    .card {
+      background: #fff;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .card h2 {
+      margin: 0 0 5px;
+      font-size: 1.4rem;
+      color: #1f2d3d;
+    }
+    .card .address {
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .card p {
+      margin-top: 0;
+      line-height: 1.4;
+    }
+    .video-preview {
+      position: relative;
+      display: inline-block;
+      width: 260px;
+      height: 170px;
+      margin-top: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .video-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .video-preview::after {
+      content: '\25B6';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      color: rgba(255, 255, 255, 0.9);
+      text-shadow: 0 0 6px rgba(0,0,0,0.6);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ClearFoodSight</h1>
+    <div class="search-box">
+      <input id="foodInput" type="text" placeholder="Cibo (es. kebab)" list="foodList">
+      <input id="cityInput" type="text" placeholder="Città (es. Milano)" list="cityList">
+      <select id="sortOption">
+        <option value="relevance">Ordina per rilevanza</option>
+        <option value="distance">Ordina per distanza dal centro</option>
+      </select>
+      <button onclick="search()">Cerca</button>
+    </div>
+    <!-- datalist for suggestions -->
+    <datalist id="foodList">
+      <option value="kebab">
+      <option value="pizza">
+      <option value="sushi">
+      <option value="ramen">
+      <option value="gelato">
+      <option value="panino">
+      <option value="shawarma">
+    </datalist>
+    <datalist id="cityList">
+      <option value="Milano">
+      <option value="Napoli">
+      <option value="Roma">
+      <option value="Cagliari">
+    </datalist>
+    <div id="results" class="results"></div>
+    <div style="text-align:center; margin-top:10px;">
+      <button id="loadMoreBtn" style="display:none; padding:10px 20px; background:#00694d; color:#fff; border:none; border-radius:4px; cursor:pointer;">Carica altri</button>
+    </div>
+  </div>
 
+  <script>
+    // Dataset statico ampliato con gelaterie di Cagliari
+    const dataset = [
+      // kebab Milano
+      { name: 'Kebabbar Star Zagros', foods: ['kebab'], city: 'Milano', address: 'Corso Ventidue Marzo 38, 20135 Milano', description: 'Considerato uno dei migliori kebab di Milano, prepara kebab con ingredienti freschi e di alta qualità e offre un ambiente accogliente con pane fatto in casa', thumbnail: 'https://source.unsplash.com/400x300?kebab' },
+      { name: 'Anatolia Kebab', foods: ['kebab'], city: 'Milano', address: 'Via Giambellino 15, 20146 Milano', description: 'Questo chiosco offre carne halal di qualità con diverse opzioni come pollo, agnello e montone e piatti come dürüm kebab', thumbnail: 'https://source.unsplash.com/400x300?kebab' },
+      { name: 'Royal Duomo Turkish Kebap', foods: ['kebab'], city: 'Milano', address: 'Milano – zona Duomo', description: 'Ambiente elegante e pulito con personale professionale e carni tenere e saporite', thumbnail: 'https://source.unsplash.com/400x300?kebab' },
+      { name: 'Shawarma House', foods: ['kebab','shawarma'], city: 'Milano', address: 'Milano', description: 'Propone un’autentica esperienza mediorientale con mezze, falafel, melanzane marinate, pastilla di pollo e shawarma di agnello', thumbnail: 'https://source.unsplash.com/400x300?kebab' },
+      { name: 'Aksaray Istanbul Kebap', foods: ['kebab'], city: 'Milano', address: 'Corso Lodi 84, 20139 Milano', description: 'Locale turco che propone kebab classici in stile tradizionale', thumbnail: 'https://source.unsplash.com/400x300?kebab' },
+      { name: 'Mekan Kebap', foods: ['kebab'], city: 'Milano', address: 'Viale Carlo Troya 10, 20144 Milano', description: 'Locale menzionato tra i migliori kebab, offre kebab e specialità turche', thumbnail: 'https://source.unsplash.com/400x300?kebab' },
+      // pizze Napoli
+      { name: 'Antica Pizzeria da Michele', foods: ['pizza'], city: 'Napoli', address: 'Via Cesare Sersale 1/3, 80139 Napoli', description: 'Una delle più antiche pizzerie di Napoli, nata all’inizio del XX secolo; serve solo pizza Margherita e Napoli e offre servizio rapido nonostante le code', thumbnail: 'https://source.unsplash.com/400x300?pizza' },
+      { name: 'Sorbillo', foods: ['pizza'], city: 'Napoli', address: 'Via dei Tribunali 32, 80138 Napoli', description: 'Pizzeria storica a gestione familiare dal 1930; le pizze sono grandi e vale la pena aspettare', thumbnail: 'https://source.unsplash.com/400x300?pizza' },
+      { name: 'Starita', foods: ['pizza'], city: 'Napoli', address: 'Via Materdei 27-28, 80136 Napoli', description: 'Pizzeria storica aperta nel 1901 e resa celebre dal film “L’oro di Napoli”; gestita dalla quarta generazione e nota per il servizio veloce', thumbnail: 'https://source.unsplash.com/400x300?pizza' },
+      // sushi Milano
+      { name: 'Yokohama Flavour Journey Cuisine', foods: ['sushi','giapponese'], city: 'Milano', address: 'Via Pantano 8, 20122 Milano', description: 'Ristorante giapponese che combina tradizione e creatività, con sushi fresco e piatti innovativi', thumbnail: 'https://source.unsplash.com/400x300?sushi' },
+      { name: 'Bomaki', foods: ['sushi','fusion'], city: 'Milano', address: 'Milano (City Life, Navigli, Porta Romana, Porta Venezia, Largo la Foppa)', description: 'Catena che fonde cucina giapponese e brasiliana con uramaki creativi, tartare, tacos e burritos in un ambiente vivace', thumbnail: 'https://source.unsplash.com/400x300?sushi' },
+      { name: 'Giappugliese', foods: ['sushi','giapponese','fusion'], city: 'Milano', address: 'Viale Papiniano 16, 20123 Milano', description: 'Un ristorante italo-giapponese con formula all-you-can-eat che propone sia piatti pugliesi che sushi e tataki', thumbnail: 'https://source.unsplash.com/400x300?sushi' },
+      { name: 'Zen Sushi Restaurant', foods: ['sushi'], city: 'Milano', address: 'Via Maddalena 1, 20122 Milano', description: 'Paradiso per gli amanti del sushi con ambiente minimal ed elegante e sushi su nastro trasportatore', thumbnail: 'https://source.unsplash.com/400x300?sushi' },
+      { name: 'Kisen Mora', foods: ['sushi'], city: 'Milano', address: 'Via Gian Giacomo Mora 9, 20123 Milano', description: 'Considerato uno dei migliori sushi di Milano, con ambiente minimal e menù che include sushi, teppanyaki e piatti creativi', thumbnail: 'https://source.unsplash.com/400x300?sushi' },
+      { name: 'Inada Ramen', foods: ['ramen','sushi'], city: 'Milano', address: 'Via Lodovico Muratori 7, 20135 Milano', description: 'Locale accogliente dove si preparano noodles freschi ogni giorno; specialità come Chashu ramen e gyoza', thumbnail: 'https://source.unsplash.com/400x300?ramen' },
+      // gelati Roma
+      { name: 'Giolitti', foods: ['gelato'], city: 'Roma', address: 'Via Uffici del Vicario 40, 00186 Roma', description: 'Una delle gelaterie più antiche e popolari di Roma, fondata intorno al 1900; offre numerosi gusti e vende anche dolci siciliani', thumbnail: 'https://source.unsplash.com/400x300?gelato' },
+      { name: 'Gelateria Frigidarium', foods: ['gelato'], city: 'Roma', address: 'Via del Governo Vecchio 112, 00186 Roma', description: 'Gelateria molto apprezzata che usa ingredienti naturali per gusti come cioccolato, nocciola e pistacchio, finiti con cioccolato o panna', thumbnail: 'https://source.unsplash.com/400x300?gelato' },
+      { name: 'Gelateria San Crispino', foods: ['gelato'], city: 'Roma', address: 'Via della Panetteria 42, 00187 Roma', description: 'Famosa per l’uso di ingredienti naturali e per non servire il gelato nel cono per preservarne il gusto; consigliata la crema al miele', thumbnail: 'https://source.unsplash.com/400x300?gelato' },
+      { name: 'Fior di Luna', foods: ['gelato'], city: 'Roma', address: 'Via della Lungareta 96, 00153 Roma', description: 'Gelateria biologica nota per l’uso di ingredienti locali e gusti originali come cioccolato al pepe e sorbetto ananas-zenzero', thumbnail: 'https://source.unsplash.com/400x300?gelato' },
+      { name: 'Fatamorgana', foods: ['gelato'], city: 'Roma', address: 'Via Laurina 10, 00187 Roma', description: 'Gelateria che propone gusti creativi come wasabi, rosa karkadé, basilico con pinoli e miele e liquirizia, accanto a classici tradizionali', thumbnail: 'https://source.unsplash.com/400x300?gelato' },
+      // gelati Cagliari
+      { name: 'Chiccheria', foods: ['gelato'], city: 'Cagliari', address: 'Via Dante Alighieri 5, Cagliari', description: 'Gelateria di altissima qualità con gusti classici e ricette locali come la pardula', thumbnail: 'https://source.unsplash.com/400x300?gelato' },
+      { name: 'I Fenu Gelateria e Pasticceria', foods: ['gelato'], city: 'Cagliari', address: 'Piazza Galileo Galilei 35, Cagliari', description: 'Utilizza ingredienti selezionati e prevalentemente sardi; gusti come la pardula e la crema alla Vernaccia di Oristano', thumbnail: 'https://source.unsplash.com/400x300?gelato' },
+      { name: 'Il Gelato Aresu', foods: ['gelato'], city: 'Cagliari', address: 'Via Vincenzo Monti 58, Cagliari', description: 'Piccola gelateria a gestione familiare con ampia scelta di gusti classici e fruttati; pistacchio di Bronte, nocciola Igp, arancia e peperoncino', thumbnail: 'https://source.unsplash.com/400x300?gelato' },
+      { name: 'Gelatificio di Federico', foods: ['gelato'], city: 'Cagliari', address: 'Corso Vittorio Emanuele II 185, Cagliari', description: 'Laboratorio che valorizza ingredienti locali indicandone la provenienza; propone anche gusti esotici come cocco e caffè', thumbnail: 'https://source.unsplash.com/400x300?gelato' },
+      { name: 'Soncini', foods: ['gelato'], city: 'Cagliari', address: 'Via Dante Alighieri 123, Cagliari', description: 'Gelateria storica famosa per accostamenti creativi come Mille voglie e malaga e per i gusti ispirati ai dolci locali', thumbnail: 'https://source.unsplash.com/400x300?gelato' },
+      { name: 'Gli Stefini Artigiani del Gelato', foods: ['gelato'], city: 'Cagliari', address: 'Via Giuseppe Garibaldi 194, Cagliari', description: 'Sede cagliaritana di una gelateria bolognese, offre gelato cremoso e sorbetti a base d’acqua, con gusti classici come zabaione, pistacchio e nocciola', thumbnail: 'https://source.unsplash.com/400x300?gelato' }
+    ];
+
+    // Chiave API Geoapify per ricerche dinamiche (inserire la propria chiave valida)
+    // Chiave API Geoapify fornita dall'utente (deve includere accesso a geocoding e Places)
+    const GEOAPIFY_KEY = '176ad9d4761c4b02929f5a8186e109b1';
+    let currentFood = null;
+    let currentCity = null;
+    let currentLat = null;
+    let currentLon = null;
+    let currentOffset = 0;
+    const LIMIT = 20;
+
+    // Calcola la distanza tra due coordinate lat/lon (in km)
+    function computeDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    // Geocodifica una città
+    async function geocodeCity(city) {
+      const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(city)}&limit=1&apiKey=${GEOAPIFY_KEY}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Errore geocodifica');
+      const data = await response.json();
+      if (data.features && data.features.length > 0) {
+        const { lat, lon } = data.features[0].properties;
+        return { lat, lon };
+      } else {
+        throw new Error('Coordinate non trovate');
+      }
+    }
+
+    // Ottiene la categoria Geoapify per un cibo
+    function getCategory(term) {
+      const mapping = {
+        'kebab': 'catering.fast_food.kebab',
+        'pizza': 'catering.restaurant.pizza',
+        'sushi': 'catering.restaurant.sushi',
+        'ramen': 'catering.restaurant',
+        'gelato': 'catering',
+        'shawarma': 'catering.fast_food.kebab',
+        'panino': 'catering.fast_food'
+      };
+      return mapping[term.toLowerCase()] || 'catering.restaurant';
+    }
+
+    // Ricerca luoghi tramite Geoapify Places
+    async function searchPlaces(food, lat, lon, offset = 0) {
+      const radius = 10000; // 10 km
+      const category = getCategory(food);
+      const url = `https://api.geoapify.com/v2/places?categories=${category}&filter=circle:${lon},${lat},${radius}&bias=proximity:${lon},${lat}&limit=${LIMIT}&offset=${offset}&apiKey=${GEOAPIFY_KEY}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Errore ricerca luoghi');
+      return await response.json();
+    }
+
+    // Funzione principale di ricerca
+    async function search() {
+      const foodInputRaw = document.getElementById('foodInput').value.trim();
+      const cityInputRaw = document.getElementById('cityInput').value.trim();
+      const sortOption = document.getElementById('sortOption').value;
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+      if (!foodInputRaw || !cityInputRaw) {
+        resultsDiv.textContent = 'Inserisci sia il cibo che la città.';
+        document.getElementById('loadMoreBtn').style.display = 'none';
+        return;
+      }
+      // prova API dinamica
+      try {
+        resultsDiv.textContent = 'Ricerca in corso…';
+        const { lat, lon } = await geocodeCity(cityInputRaw);
+        currentFood = foodInputRaw.toLowerCase();
+        currentCity = cityInputRaw;
+        currentLat = lat;
+        currentLon = lon;
+        currentOffset = 0;
+        let data = await searchPlaces(currentFood, lat, lon, currentOffset);
+        let places = data.features || [];
+        if (sortOption === 'distance' && places.length > 0) {
+          places = places.map(f => {
+            const coords = f.geometry.coordinates;
+            f._distance = computeDistance(lat, lon, coords[1], coords[0]);
+            return f;
+          }).sort((a, b) => a._distance - b._distance);
+        }
+        if (places.length > 0) {
+          resultsDiv.innerHTML = '';
+          places.forEach(place => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            const h2 = document.createElement('h2');
+            h2.textContent = place.properties.name || 'Nome non disponibile';
+            card.appendChild(h2);
+            if (place.properties.formatted) {
+              const addr = document.createElement('div');
+              addr.className = 'address';
+              addr.textContent = place.properties.formatted;
+              card.appendChild(addr);
+            }
+            const desc = document.createElement('p');
+            desc.textContent = place.properties.categories ? 'Categoria: ' + place.properties.categories.join(', ') : 'Luogo trovato tramite Geoapify.';
+            card.appendChild(desc);
+            // link TikTok
+            const link = document.createElement('a');
+            link.className = 'video-preview';
+            const query = encodeURIComponent(`${place.properties.name || ''} ${foodInputRaw} ${cityInputRaw}`);
+            link.href = `https://www.tiktok.com/search?q=${query}`;
+            link.target = '_blank';
+            const img = document.createElement('img');
+            img.src = `https://source.unsplash.com/400x300?${encodeURIComponent(foodInputRaw)}`;
+            img.alt = 'Anteprima video';
+            link.appendChild(img);
+            card.appendChild(link);
+            resultsDiv.appendChild(card);
+          });
+          currentOffset += LIMIT;
+          const loadBtn = document.getElementById('loadMoreBtn');
+          loadBtn.style.display = 'inline-block';
+          loadBtn.onclick = loadMore;
+          return;
+        }
+      } catch (err) {
+        console.log('Errore API o nessun risultato dinamico:', err.message);
+      }
+      // fallback a dataset statico
+      const foodLower = foodInputRaw.toLowerCase();
+      const cityLower = cityInputRaw.toLowerCase();
+      const matches = dataset.filter(item => item.foods.some(f => f.toLowerCase() === foodLower) && item.city.toLowerCase() === cityLower);
+      if (matches.length === 0) {
+        resultsDiv.textContent = `Nessun risultato trovato per "${foodInputRaw}" a ${cityInputRaw}.`;
+        document.getElementById('loadMoreBtn').style.display = 'none';
+        return;
+      }
+      matches.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const h2 = document.createElement('h2');
+        h2.textContent = item.name;
+        card.appendChild(h2);
+        const addr = document.createElement('div');
+        addr.className = 'address';
+        addr.textContent = item.address;
+        card.appendChild(addr);
+        const desc = document.createElement('p');
+        desc.textContent = item.description;
+        card.appendChild(desc);
+        const foodsP = document.createElement('p');
+        foodsP.textContent = 'Tipi di cibo: ' + item.foods.join(', ');
+        card.appendChild(foodsP);
+        // link TikTok per dataset
+        const link = document.createElement('a');
+        link.className = 'video-preview';
+        const query = encodeURIComponent(`${item.name} ${foodInputRaw} ${cityInputRaw}`);
+        link.href = `https://www.tiktok.com/search?q=${query}`;
+        link.target = '_blank';
+        const img = document.createElement('img');
+        img.src = item.thumbnail;
+        img.alt = 'Anteprima video';
+        link.appendChild(img);
+        card.appendChild(link);
+        resultsDiv.appendChild(card);
+      });
+      document.getElementById('loadMoreBtn').style.display = 'none';
+    }
+
+    // Carica altri risultati dinamici
+    async function loadMore() {
+      const resultsDiv = document.getElementById('results');
+      try {
+        let data = await searchPlaces(currentFood, currentLat, currentLon, currentOffset);
+        let places = data.features || [];
+        const sortOption = document.getElementById('sortOption').value;
+        if (sortOption === 'distance' && places.length > 0) {
+          places = places.map(f => {
+            const coords = f.geometry.coordinates;
+            f._distance = computeDistance(currentLat, currentLon, coords[1], coords[0]);
+            return f;
+          }).sort((a,b) => a._distance - b._distance);
+        }
+        if (places.length === 0) {
+          document.getElementById('loadMoreBtn').style.display = 'none';
+          return;
+        }
+        places.forEach(place => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          const h2 = document.createElement('h2');
+          h2.textContent = place.properties.name || 'Nome non disponibile';
+          card.appendChild(h2);
+          if (place.properties.formatted) {
+            const addr = document.createElement('div');
+            addr.className = 'address';
+            addr.textContent = place.properties.formatted;
+            card.appendChild(addr);
+          }
+          const desc = document.createElement('p');
+          desc.textContent = place.properties.categories ? 'Categoria: ' + place.properties.categories.join(', ') : 'Luogo trovato tramite Geoapify.';
+          card.appendChild(desc);
+          const link = document.createElement('a');
+          link.className = 'video-preview';
+          const query = encodeURIComponent(`${place.properties.name || ''} ${currentFood} ${currentCity}`);
+          link.href = `https://www.tiktok.com/search?q=${query}`;
+          link.target = '_blank';
+          const img = document.createElement('img');
+          img.src = `https://source.unsplash.com/400x300?${encodeURIComponent(currentFood)}`;
+          img.alt = 'Anteprima video';
+          link.appendChild(img);
+          card.appendChild(link);
+          resultsDiv.appendChild(card);
+        });
+        currentOffset += LIMIT;
+      } catch (err) {
+        console.log('Errore nel caricamento di altri risultati', err.message);
+        document.getElementById('loadMoreBtn').style.display = 'none';
+      }
+    }
+
+    // Autocomplete dinamico per le città usando Geoapify
+    document.getElementById('cityInput').addEventListener('input', async (e) => {
+      const input = e.target.value.trim();
+      const listEl = document.getElementById('cityList');
+      if (!GEOAPIFY_KEY || input.length < 2) return;
+      try {
+        const url = `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(input)}&limit=5&apiKey=${GEOAPIFY_KEY}`;
+        const resp = await fetch(url);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        listEl.innerHTML = '';
+        (data.features || []).forEach(feat => {
+          const opt = document.createElement('option');
+          opt.value = feat.properties.city || feat.properties.formatted;
+          listEl.appendChild(opt);
+        });
+      } catch (ex) {
+        // ignora errori di rete
+      }
+    });
+  </script>
+</body>
+</html>
