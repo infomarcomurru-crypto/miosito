@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClearFoodSight – Ricerca gastronomica</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f7f7f7;
+      color: #333;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin: 10px 0 20px;
+      color: #2c3e50;
+    }
+    .search-box {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 15px;
+    }
+    .search-box input[type="text"], .search-box select {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    .search-box button {
+      padding: 10px 20px;
+      background: #007b5e;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    .search-box button:hover {
+      background: #00694d;
+    }
+    .results {
+      margin-top: 20px;
+    }
+    .card {
+      background: #fff;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .card h2 {
+      margin: 0 0 5px;
+      font-size: 1.4rem;
+      color: #1f2d3d;
+    }
+    .card .address {
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .card p {
+      margin-top: 0;
+      line-height: 1.4;
+    }
+    .video-links {
+      margin-top: 8px;
+    }
+    .video-links span {
+      margin-right: 4px;
+      font-size: 1.2rem;
+    }
+    .video-links a {
+      margin-right: 6px;
+      text-decoration: none;
+      font-size: 1.2rem;
+    }
+    .video-links a:hover {
+      text-decoration: underline;
+    }
+
+    /* Navigation links styling */
+    .nav-links {
+      margin-top: 4px;
+    }
+    .nav-links a {
+      margin-right: 6px;
+      text-decoration: none;
+      font-size: 1.1rem;
+    }
+    .nav-links a:hover {
+      text-decoration: underline;
+    }
+
+    /* Map image styling */
+    .map {
+      width: 100%;
+      height: auto;
+      margin-top: 8px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ClearFoodSight</h1>
+    <div class="search-box">
+      <input id="foodInput" type="text" placeholder="Cibo (es. kebab)" list="foodList">
+      <input id="cityInput" type="text" placeholder="Città (es. Milano)" list="cityList">
+      <select id="sortOption">
+        <option value="relevance">Ordina per rilevanza</option>
+        <option value="distance">Ordina per distanza dal centro</option>
+        <option value="alphabetical">Ordina per nome (A-Z)</option>
+      </select>
+      <button onclick="search()">Cerca</button>
+    </div>
+    <datalist id="foodList">
+      <option value="kebab">
+      <option value="pizza">
+      <option value="sushi">
+      <option value="ramen">
+      <option value="gelato">
+      <option value="panino">
+      <option value="shawarma">
+    </datalist>
+    <datalist id="cityList">
+      <option value="Milano">
+      <option value="Napoli">
+      <option value="Roma">
+      <option value="Cagliari">
+    </datalist>
+    <div id="results" class="results"></div>
+    <div style="text-align:center; margin-top:10px;">
+      <button id="loadMoreBtn" style="display:none; padding:10px 20px; background:#00694d; color:#fff; border:none; border-radius:4px; cursor:pointer;">Carica altri</button>
+    </div>
+  </div>
+
+  <script>
+    // Dataset statico con ristoranti e gelaterie
+    const dataset = [
+      { name: 'Kebabbar Star Zagros', foods: ['kebab'], city: 'Milano', address: 'Corso Ventidue Marzo 38, 20135 Milano', description: 'Considerato uno dei migliori kebab di Milano, prepara kebab con ingredienti freschi e di alta qualità e offre un ambiente accogliente con pane fatto in casa' },
+      { name: 'Anatolia Kebab', foods: ['kebab'], city: 'Milano', address: 'Via Giambellino 15, 20146 Milano', description: 'Questo chiosco offre carne halal di qualità con diverse opzioni come pollo, agnello e montone e piatti come dürüm kebab' },
+      { name: 'Royal Duomo Turkish Kebap', foods: ['kebab'], city: 'Milano', address: 'Milano – zona Duomo', description: 'Ambiente elegante e pulito con personale professionale e carni tenere e saporite' },
+      { name: 'Shawarma House', foods: ['kebab','shawarma'], city: 'Milano', address: 'Milano', description: 'Propone un’autentica esperienza mediorientale con mezze, falafel, melanzane marinate, pastilla di pollo e shawarma di agnello' },
+      { name: 'Aksaray Istanbul Kebap', foods: ['kebab'], city: 'Milano', address: 'Corso Lodi 84, 20139 Milano', description: 'Locale turco che propone kebab classici in stile tradizionale' },
+      { name: 'Mekan Kebap', foods: ['kebab'], city: 'Milano', address: 'Viale Carlo Troya 10, 20144 Milano', description: 'Locale menzionato tra i migliori kebab, offre kebab e specialità turche' },
+      { name: 'Antica Pizzeria da Michele', foods: ['pizza'], city: 'Napoli', address: 'Via Cesare Sersale 1/3, 80139 Napoli', description: 'Una delle più antiche pizzerie di Napoli, nata all’inizio del XX secolo; serve solo pizza Margherita e Napoli e offre servizio rapido nonostante le code' },
+      { name: 'Sorbillo', foods: ['pizza'], city: 'Napoli', address: 'Via dei Tribunali 32, 80138 Napoli', description: 'Pizzeria storica a gestione familiare dal 1930; le pizze sono grandi e vale la pena aspettare' },
+      { name: 'Starita', foods: ['pizza'], city: 'Napoli', address: 'Via Materdei 27-28, 80136 Napoli', description: 'Pizzeria storica aperta nel 1901 e resa celebre dal film “L’oro di Napoli”; gestita dalla quarta generazione e nota per il servizio veloce' },
+      { name: 'Yokohama Flavour Journey Cuisine', foods: ['sushi','giapponese'], city: 'Milano', address: 'Via Pantano 8, 20122 Milano', description: 'Ristorante giapponese che combina tradizione e creatività, con sushi fresco e piatti innovativi' },
+      { name: 'Bomaki', foods: ['sushi','fusion'], city: 'Milano', address: 'Milano (City Life, Navigli, Porta Romana, Porta Venezia, Largo la Foppa)', description: 'Catena che fonde cucina giapponese e brasiliana con uramaki creativi, tartare, tacos e burritos in un ambiente vivace' },
+      { name: 'Giappugliese', foods: ['sushi','giapponese','fusion'], city: 'Milano', address: 'Viale Papiniano 16, 20123 Milano', description: 'Un ristorante italo-giapponese con formula all-you-can-eat che propone sia piatti pugliesi che sushi e tataki' },
+      { name: 'Zen Sushi Restaurant', foods: ['sushi'], city: 'Milano', address: 'Via Maddalena 1, 20122 Milano', description: 'Paradiso per gli amanti del sushi con ambiente minimal ed elegante e sushi su nastro trasportatore' },
+      { name: 'Kisen Mora', foods: ['sushi'], city: 'Milano', address: 'Via Gian Giacomo Mora 9, 20123 Milano', description: 'Considerato uno dei migliori sushi di Milano, con ambiente minimal e menù che include sushi, teppanyaki e piatti creativi' },
+      { name: 'Inada Ramen', foods: ['ramen','sushi'], city: 'Milano', address: 'Via Lodovico Muratori 7, 20135 Milano', description: 'Locale accogliente dove si preparano noodles freschi ogni giorno; specialità come Chashu ramen e gyoza' },
+      { name: 'Giolitti', foods: ['gelato'], city: 'Roma', address: 'Via Uffici del Vicario 40, 00186 Roma', description: 'Una delle gelaterie più antiche e popolari di Roma, fondata intorno al 1900; offre numerosi gusti e vende anche dolci siciliani' },
+      { name: 'Gelateria Frigidarium', foods: ['gelato'], city: 'Roma', address: 'Via del Governo Vecchio 112, 00186 Roma', description: 'Gelateria molto apprezzata che usa ingredienti naturali per gusti come cioccolato, nocciola e pistacchio, finiti con cioccolato o panna' },
+      { name: 'Gelateria San Crispino', foods: ['gelato'], city: 'Roma', address: 'Via della Panetteria 42, 00187 Roma', description: 'Famosa per l’uso di ingredienti naturali e per non servire il gelato nel cono per preservarne il gusto; consigliata la crema al miele' },
+      { name: 'Fior di Luna', foods: ['gelato'], city: 'Roma', address: 'Via della Lungareta 96, 00153 Roma', description: 'Gelateria biologica nota per l’uso di ingredienti locali e gusti originali come cioccolato al pepe e sorbetto ananas-zenzero' },
+      { name: 'Fatamorgana', foods: ['gelato'], city: 'Roma', address: 'Via Laurina 10, 00187 Roma', description: 'Gelateria che propone gusti creativi come wasabi, rosa karkadé, basilico con pinoli e miele e liquirizia, accanto a classici tradizionali' },
+      { name: 'Chiccheria', foods: ['gelato'], city: 'Cagliari', address: 'Via Dante Alighieri 5, Cagliari', description: 'Gelateria di altissima qualità con gusti classici e ricette locali come la pardula' },
+      { name: 'I Fenu Gelateria e Pasticceria', foods: ['gelato'], city: 'Cagliari', address: 'Piazza Galileo Galilei 35, Cagliari', description: 'Utilizza ingredienti selezionati e prevalentemente sardi; gusti come la pardula e la crema alla Vernaccia di Oristano' },
+      { name: 'Il Gelato Aresu', foods: ['gelato'], city: 'Cagliari', address: 'Via Vincenzo Monti 58, Cagliari', description: 'Piccola gelateria a gestione familiare con ampia scelta di gusti classici e fruttati; pistacchio di Bronte, nocciola Igp, arancia e peperoncino' },
+      { name: 'Gelatificio di Federico', foods: ['gelato'], city: 'Cagliari', address: 'Corso Vittorio Emanuele II 185, Cagliari', description: 'Laboratorio che valorizza ingredienti locali indicandone la provenienza; propone anche gusti esotici come cocco e caffè' },
+      { name: 'Soncini', foods: ['gelato'], city: 'Cagliari', address: 'Via Dante Alighieri 123, Cagliari', description: 'Gelateria storica famosa per accostamenti creativi come Mille voglie e malaga e per i gusti ispirati ai dolci locali' },
+      { name: 'Gli Stefini Artigiani del Gelato', foods: ['gelato'], city: 'Cagliari', address: 'Via Giuseppe Garibaldi 194, Cagliari', description: 'Sede cagliaritana di una gelateria bolognese, offre gelato cremoso e sorbetti a base d’acqua, con gusti classici come zabaione, pistacchio e nocciola' }
+    ];
+
+    const GEOAPIFY_KEY = '176ad9d4761c4b02929f5a8186e109b1';
+    let currentFood = null;
+    let currentCity = null;
+    let currentLat = null;
+    let currentLon = null;
+    let currentOffset = 0;
+    const LIMIT = 20;
+
+    const foodEmojis = {
+      kebab: '🌯',
+      pizza: '🍕',
+      sushi: '🍣',
+      ramen: '🍜',
+      gelato: '🍨',
+      panino: '🥪',
+      shawarma: '🥙'
+    };
+    const cityEmojis = {
+      milano: ['🏙️','🍝','🎭'],
+      napoli: ['🌞','🌋','🍕'],
+      roma: ['🏛️','🍦','🕌'],
+      cagliari: ['🌊','🏖️','🍨']
+    };
+
+    function pickEmoji(food, city) {
+      const list = [];
+      if (city && cityEmojis[city.toLowerCase()]) list.push(...cityEmojis[city.toLowerCase()]);
+      if (food && foodEmojis[food.toLowerCase()]) list.push(foodEmojis[food.toLowerCase()]);
+      return list.length ? list[Math.floor(Math.random() * list.length)] : '🍽️';
+    }
+
+    function computeDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    async function geocodeCity(city) {
+      const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(city)}&limit=1&apiKey=${GEOAPIFY_KEY}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Errore geocodifica');
+      const data = await response.json();
+      if (data.features && data.features.length) {
+        const { lat, lon } = data.features[0].properties;
+        return { lat, lon };
+      }
+      throw new Error('Coordinate non trovate');
+    }
+
+    function getCategory(term) {
+      const lower = term.toLowerCase();
+      // Explicit mappings based on substrings
+      if (lower.includes('kebab')) return 'catering.fast_food.kebab';
+      if (lower.includes('shawarma') || lower.includes('doner')) return 'catering.fast_food.kebab';
+      if (lower.includes('panino') || lower.includes('sandwich')) return 'catering.fast_food';
+      if (lower.includes('pizza')) return 'catering.restaurant.pizza';
+      if (lower.includes('sushi')) return 'catering.restaurant.sushi';
+      if (lower.includes('ramen')) return 'catering.restaurant';
+      if (lower.includes('gelato') || lower.includes('gelateria')) return 'catering';
+      // Drinks and smoothies – use a general cafe category for smoothies and shakes so that
+      // we can filter the results by name afterwards. Geoapify does not provide
+      // dedicated categories for smoothie or protein shake bars, so we query cafes to
+      // find matching names.
+      if (lower.includes('frullato') || lower.includes('smoothie') || lower.includes('shaker') || lower.includes('proteico') || lower.includes('protein')) {
+        return 'catering.cafe';
+      }
+      // Default fallback to general restaurants for unrecognized dishes
+      return 'catering.restaurant';
+    }
+
+    // Filter the list of places returned from Geoapify based on food keywords.  This
+    // helps narrow down results for generic categories (e.g. cafes) to those that
+    // actually serve smoothies, protein shakes, etc.  When no special keywords
+    // apply, the list is returned unchanged.
+    function filterByFood(term, places) {
+      const lower = term.toLowerCase();
+      // Smoothies and fruit shakes
+      if (lower.includes('frullato') || lower.includes('smoothie')) {
+        const keywords = ['smoothie','smoothies','frullato','frullati','frappe','juice','succhi'];
+        return places.filter(p => {
+          const name = (p.properties.name || '').toLowerCase();
+          return keywords.some(k => name.includes(k));
+        });
+      }
+      // Protein shakes / sports nutrition
+      if (lower.includes('proteico') || lower.includes('protein') || lower.includes('shaker')) {
+        const keywords = ['protein','proteico','shaker','sport','supplement'];
+        return places.filter(p => {
+          const name = (p.properties.name || '').toLowerCase();
+          return keywords.some(k => name.includes(k));
+        });
+      }
+      // For generic foods (not smoothies or protein shakes), do not apply any
+      // filtering. This avoids cutting out valid restaurants when the food term
+      // appears only in the menu and not in the venue name.
+      return places;
+    }
+
+    async function searchPlaces(food, lat, lon, offset=0) {
+      const radius = 10000;
+      const category = getCategory(food);
+      const url = `https://api.geoapify.com/v2/places?categories=${category}&filter=circle:${lon},${lat},${radius}&bias=proximity:${lon},${lat}&limit=${LIMIT}&offset=${offset}&apiKey=${GEOAPIFY_KEY}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Errore ricerca luoghi');
+      return await response.json();
+    }
+
+    function createVideoLinks(name, food, city) {
+      const query = encodeURIComponent(`${name} ${food} ${city}`);
+      const queryNoSpaces = query.replace(/%20/g, '');
+      const container = document.createElement('div');
+      container.className = 'video-links';
+      const emoji = pickEmoji(food, city);
+      const span = document.createElement('span');
+      span.textContent = emoji;
+      container.appendChild(span);
+      const platforms = [
+        // Use TikTok video search instead of general search for better compatibility
+        { href: `https://www.tiktok.com/search/video?q=${query}`, icon: '🎵', title: 'TikTok' },
+        // Use Instagram URL with a copy-link parameter to prefer the web view on mobile devices
+        { href: `https://www.instagram.com/explore/tags/${queryNoSpaces}/?utm_medium=copy_link`, icon: '📸', title: 'Instagram' },
+        // Use the m.facebook.com domain to force the mobile web experience instead of opening the native app
+        { href: `https://m.facebook.com/search/videos/?q=${query}`, icon: '📘', title: 'Facebook' },
+        { href: `https://www.youtube.com/results?search_query=${query}`, icon: '▶️', title: 'YouTube' }
+      ];
+      platforms.forEach(p => {
+        const a = document.createElement('a');
+        a.href = p.href;
+        a.target = '_blank';
+        a.textContent = p.icon;
+        a.title = p.title;
+        container.appendChild(a);
+      });
+      return container;
+    }
+
+    // Determine a FontAwesome icon name based on the food term.  These icons are
+    // supported by Geoapify's staticmap API when using type=awesome.
+    function getIconForFood(term) {
+      const t = term.toLowerCase();
+      if (t.includes('pizza')) return 'pizza-slice';
+      if (t.includes('sushi') || t.includes('ramen')) return 'fish';
+      if (t.includes('gelato')) return 'ice-cream';
+      if (t.includes('panino') || t.includes('kebab') || t.includes('shawarma')) return 'utensils';
+      return 'utensils';
+    }
+
+    // Create a static map image element given longitude, latitude and a food term.  The
+    // marker icon is chosen based on the food.  A smooth bright style is used for
+    // better aesthetics.
+    function createMapImg(lon, lat, foodTerm) {
+      const icon = getIconForFood(foodTerm || '');
+      const src = `https://maps.geoapify.com/v1/staticmap?style=osm-bright-smooth&width=300&height=150&center=lonlat:${lon},${lat}&zoom=15&marker=lonlat:${lon},${lat};type:awesome;icon:${icon};color:%23bb3f73;size:large&apiKey=${GEOAPIFY_KEY}`;
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = 'Mappa';
+      img.className = 'map';
+      return img;
+    }
+
+    // Geocode a full address and return a map image element. Returns null if geocoding fails.
+    async function createMapForAddress(address, foodTerm) {
+      try {
+        const url = `https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(address)}&apiKey=${GEOAPIFY_KEY}`;
+        const response = await fetch(url);
+        if (!response.ok) return null;
+        const data = await response.json();
+        if (data.features && data.features.length) {
+          const coords = data.features[0].geometry.coordinates;
+          const mapImg = createMapImg(coords[0], coords[1], foodTerm);
+          return { map: mapImg, lat: coords[1], lon: coords[0] };
+        }
+      } catch (err) {
+        console.error('Errore geocodifica indirizzo', err);
+      }
+      return null;
+    }
+
+    // Create navigation links for external map/navigation services.  Opens Google Maps,
+    // Waze and Apple Maps with the given coordinates.
+    function createNavigationLinks(lat, lon) {
+      const container = document.createElement('div');
+      container.className = 'nav-links';
+      const links = [
+        {
+          // Use a generic Google Maps URL with query parameter for broader compatibility
+          href: `https://maps.google.com/?q=${lat},${lon}`,
+          label: '🗺️ Google Maps'
+        },
+        {
+          href: `https://www.waze.com/ul?ll=${lat},${lon}&navigate=yes`,
+          label: '🚗 Waze'
+        },
+        {
+          href: `https://maps.apple.com/?ll=${lat},${lon}`,
+          label: '🍎 Apple Maps'
+        }
+      ];
+      links.forEach((item, index) => {
+        const a = document.createElement('a');
+        a.href = item.href;
+        a.target = '_blank';
+        a.textContent = item.label;
+        if (index < links.length - 1) {
+          // add comma and space after each link except last
+          a.textContent += ', ';
+        }
+        container.appendChild(a);
+      });
+      return container;
+    }
+
+    async function search() {
+      const foodInputRaw = document.getElementById('foodInput').value.trim();
+      const cityInputRaw = document.getElementById('cityInput').value.trim();
+      const sortOption = document.getElementById('sortOption').value;
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+      if (!foodInputRaw || !cityInputRaw) {
+        resultsDiv.textContent = 'Inserisci sia il cibo che la città.';
+        document.getElementById('loadMoreBtn').style.display = 'none';
+        return;
+      }
+      try {
+        resultsDiv.textContent = 'Ricerca in corso…';
+        const { lat, lon } = await geocodeCity(cityInputRaw);
+        currentFood = foodInputRaw.toLowerCase();
+        currentCity = cityInputRaw;
+        currentLat = lat;
+        currentLon = lon;
+        currentOffset = 0;
+        let data = await searchPlaces(currentFood, lat, lon, currentOffset);
+        let places = data.features || [];
+        if (places.length) {
+          // Filter by food keywords for smoothies or protein shakes when querying a generic category
+          places = filterByFood(currentFood, places);
+          if (sortOption === 'distance') {
+            places = places.map(f => {
+              const coords = f.geometry.coordinates;
+              f._distance = computeDistance(lat, lon, coords[1], coords[0]);
+              return f;
+            }).sort((a,b) => a._distance - b._distance);
+          } else if (sortOption === 'alphabetical') {
+            places = places.sort((a,b) => {
+              const nameA = (a.properties.name || '').toLowerCase();
+              const nameB = (b.properties.name || '').toLowerCase();
+              return nameA.localeCompare(nameB, 'it', { sensitivity: 'base' });
+            });
+          }
+          resultsDiv.innerHTML = '';
+          for (const place of places) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            const h2 = document.createElement('h2');
+            h2.textContent = place.properties.name || 'Nome non disponibile';
+            card.appendChild(h2);
+            if (place.properties.formatted) {
+              const addr = document.createElement('div');
+              addr.className = 'address';
+              addr.textContent = place.properties.formatted;
+              card.appendChild(addr);
+            }
+            const desc = document.createElement('p');
+            desc.textContent = place.properties.categories ? 'Categoria: ' + place.properties.categories.join(', ') : 'Luogo trovato tramite Geoapify.';
+            card.appendChild(desc);
+            // Append video links
+            const links = createVideoLinks(place.properties.name || '', foodInputRaw, cityInputRaw);
+            card.appendChild(links);
+            // Append map image for dynamic results
+            if (place.geometry && place.geometry.coordinates) {
+              const coords = place.geometry.coordinates;
+              // coords array: [lon, lat]
+              const mapImg = createMapImg(coords[0], coords[1], foodInputRaw);
+              card.appendChild(mapImg);
+              // Append navigation links
+              const nav = createNavigationLinks(coords[1], coords[0]);
+              card.appendChild(nav);
+            }
+            resultsDiv.appendChild(card);
+          }
+          currentOffset += LIMIT;
+          const loadBtn = document.getElementById('loadMoreBtn');
+          loadBtn.style.display = 'inline-block';
+          loadBtn.onclick = loadMore;
+          return;
+        }
+      } catch (err) {
+        console.log('Errore API o nessun risultato dinamico:', err.message);
+      }
+      // Fallback dataset
+      const foodLower = foodInputRaw.toLowerCase();
+      const cityLower = cityInputRaw.toLowerCase();
+      let matches = dataset.filter(item => item.foods.some(f => f.toLowerCase() === foodLower) && item.city.toLowerCase() === cityLower);
+      if (!matches.length) {
+        resultsDiv.textContent = `Nessun risultato trovato per "${foodInputRaw}" a ${cityInputRaw}.`;
+        document.getElementById('loadMoreBtn').style.display = 'none';
+        return;
+      }
+      if (sortOption === 'alphabetical') {
+        matches = matches.sort((a,b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase(), 'it', { sensitivity:'base' }));
+      } else if (sortOption === 'distance') {
+        // per i dati statici non abbiamo coordinate, quindi l'ordinamento per distanza non si applica
+      }
+      for (const item of matches) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        const h2 = document.createElement('h2');
+        h2.textContent = item.name;
+        card.appendChild(h2);
+        const addr = document.createElement('div');
+        addr.className = 'address';
+        addr.textContent = item.address;
+        card.appendChild(addr);
+        const desc = document.createElement('p');
+        desc.textContent = item.description;
+        card.appendChild(desc);
+        const foodsP = document.createElement('p');
+        foodsP.textContent = 'Tipi di cibo: ' + item.foods.join(', ');
+        card.appendChild(foodsP);
+        const links = createVideoLinks(item.name, foodInputRaw, cityInputRaw);
+        card.appendChild(links);
+        // Attempt to geocode the address and append a map image with appropriate icon.
+        const mapResult = await createMapForAddress(item.address, item.foods[0]);
+        if (mapResult) {
+          card.appendChild(mapResult.map);
+          const nav = createNavigationLinks(mapResult.lat, mapResult.lon);
+          card.appendChild(nav);
+        }
+        resultsDiv.appendChild(card);
+      }
+      document.getElementById('loadMoreBtn').style.display = 'none';
+    }
+
+    async function loadMore() {
+      const resultsDiv = document.getElementById('results');
+      try {
+        let data = await searchPlaces(currentFood, currentLat, currentLon, currentOffset);
+        let places = data.features || [];
+        // Filter by food keywords for smoothies or protein shakes when querying a generic category
+        places = filterByFood(currentFood, places);
+        const sortOption = document.getElementById('sortOption').value;
+        if (!places.length) {
+          document.getElementById('loadMoreBtn').style.display = 'none';
+          return;
+        }
+        if (sortOption === 'distance') {
+          places = places.map(f => {
+            const coords = f.geometry.coordinates;
+            f._distance = computeDistance(currentLat, currentLon, coords[1], coords[0]);
+            return f;
+          }).sort((a,b) => a._distance - b._distance);
+        } else if (sortOption === 'alphabetical') {
+          places = places.sort((a,b) => {
+            const nameA = (a.properties.name || '').toLowerCase();
+            const nameB = (b.properties.name || '').toLowerCase();
+            return nameA.localeCompare(nameB, 'it', { sensitivity:'base' });
+          });
+        }
+        for (const place of places) {
+          const card = document.createElement('div');
+          card.className = 'card';
+          const h2 = document.createElement('h2');
+          h2.textContent = place.properties.name || 'Nome non disponibile';
+          card.appendChild(h2);
+          if (place.properties.formatted) {
+            const addr = document.createElement('div');
+            addr.className = 'address';
+            addr.textContent = place.properties.formatted;
+            card.appendChild(addr);
+          }
+          const desc = document.createElement('p');
+          desc.textContent = place.properties.categories ? 'Categoria: ' + place.properties.categories.join(', ') : 'Luogo trovato tramite Geoapify.';
+          card.appendChild(desc);
+          const links = createVideoLinks(place.properties.name || '', currentFood, currentCity);
+          card.appendChild(links);
+          // Append map image for dynamic results
+          if (place.geometry && place.geometry.coordinates) {
+            const coords = place.geometry.coordinates;
+            const mapImg = createMapImg(coords[0], coords[1], currentFood);
+            card.appendChild(mapImg);
+            const nav = createNavigationLinks(coords[1], coords[0]);
+            card.appendChild(nav);
+          }
+          resultsDiv.appendChild(card);
+        }
+        currentOffset += LIMIT;
+      } catch (err) {
+        console.log('Errore nel caricamento di altri risultati', err.message);
+        document.getElementById('loadMoreBtn').style.display = 'none';
+      }
+    }
+
+    document.getElementById('cityInput').addEventListener('input', async (e) => {
+      const input = e.target.value.trim();
+      const listEl = document.getElementById('cityList');
+      if (!GEOAPIFY_KEY || input.length < 2) return;
+      try {
+        const url = `https://api.geoapify.com/v1/geocode/autocomplete?text=${encodeURIComponent(input)}&limit=5&apiKey=${GEOAPIFY_KEY}`;
+        const resp = await fetch(url);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        listEl.innerHTML = '';
+        (data.features || []).forEach(feat => {
+          const opt = document.createElement('option');
+          opt.value = feat.properties.city || feat.properties.formatted;
+          listEl.appendChild(opt);
+        });
+      } catch (ex) {
+        // ignora errori di rete
+      }
+    });
+  </script>
+</body>
+</html>
